@@ -5,6 +5,7 @@
   "type": "module",
   "dependencies": {
     "@socket.io/cluster-adapter": "^0.2.2",
+    "dotenv": "^17.2.3",
     "express": "^4.21.2",
     "nodemon": "^3.1.10",
     "socket.io": "^4.8.1",

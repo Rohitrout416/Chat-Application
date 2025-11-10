@@ -5,10 +5,7 @@ import { dirname, join } from 'path';
 import { Server } from 'socket.io';
 import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
-import { availableParallelism } from 'node:os';
-import cluster from 'node:cluster';
-import { createAdapter, setupPrimary } from '@socket.io/cluster-adapter';
-
+import dotenv from 'dotenv';
 const db = await open({
     filename: 'chat_05-10-25.db',
     driver: sqlite3.Database
@@ -21,24 +18,12 @@ await db.exec(`
     content TEXT)
     `);
   
-if(cluster.isPrimary){
-  const numCPUs = availableParallelism();
 
-  for( let i = 0; i<numCPUs; i++){
-    cluster.fork({
-      PORT: 3000 + i
-    });
-  }
-
-  setupPrimary();
-}else{
   const app = express();
   const server = createServer(app);
   const __dirname = dirname(fileURLToPath(import.meta.url));
   const io = new Server(server, {
-    connectionStateRecovery: {},
-    // set up the adapter on each worker thread
-    adapter: createAdapter()
+    connectionStateRecovery: {}
   });
 
   app.get('/', (req, res) => {
@@ -82,10 +67,12 @@ if(cluster.isPrimary){
     }
   })
 
+  dotenv.config();
+
   server.listen(process.env.PORT, () => {
       console.log(`server running at http://localhost:${process.env.PORT}`);
   })
-}
+
 // io.on('connection', (socket) => {
 //       socket.on('chat message', (msg) => {
 //     console.log('message: ' + msg);
