@@ -1,0 +1,76 @@
+# Basic .gitignore for chat-socket (Node.js + Python + common OS/IDE files)
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnp/
+.pnp.js
+.cache/
+.next/
+.out/
+dist/
+build/
+logs/
+*.log
+.npm/*
+.eslintcache
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+.eggs/
+build/
+dist/
+pip-wheel-metadata/
+venv/
+.venv/
+env/
+.env/
+.pytest_cache/
+htmlcov/
+coverage/
+coverage.xml
+
+# Environment / secrets
+.env
+.env.*.local
+.local.env
+secrets.env
+*.pem
+*.key
+*.crt
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+
+# Containers / CI
+docker-compose.override.yml
+docker-compose.*.yml
+.Dockerfile.swp
+
+# Misc
+tmp/
+temp/
+*.tmp
+*.swp
+*~
+.cache/
+node-repl.history
+npm-debug.log*
+yarn-debug.log*
