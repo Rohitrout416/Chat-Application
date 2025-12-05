@@ -3,33 +3,46 @@ import { createServer } from 'http';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { Server } from 'socket.io';
-import sqlite3 from 'sqlite3';
-import { open } from 'sqlite';
+import bcrypt from 'bcryptjs';
+import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-const db = await open({
-    filename: 'chat_05-10-25.db',
-    driver: sqlite3.Database
-})
+import { signup, login, authenticateToken } from "./Controllers/authController.js"
+import Message from './models/message.js'
+import jwt from 'jsonwebtoken';
 
-await db.exec(`
-    CREATE TABLE IF NOT EXISTS messages (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    client_offset TEXT UNIQUE,
-    content TEXT)
-    `);
-  
+dotenv.config();
 
-  const app = express();
+const mongoURL = process.env.url
+mongoose.connect(mongoURL).then(()=>{console.log("MongoDB connected!")})
+.catch((err)=>{console.log("Connection Error! - ", err)});
+
+const app = express();
+app.use(express.json());
+
   const server = createServer(app);
-  const __dirname = dirname(fileURLToPath(import.meta.url));
+  const currDir = dirname(fileURLToPath(import.meta.url));
+  const parDir = dirname(currDir);
   const io = new Server(server, {
     connectionStateRecovery: {}
   });
 
   app.get('/', (req, res) => {
-      res.sendFile(join(__dirname, 'index.html'))
+      res.sendFile(join(parDir, '/frontend/index.html'))
   })
 
+  app.post('/users/signup',signup);
+  app.post('/users/login',login);
+  app.get('/posts', authenticateToken, (req, res)=>{console.log("This is verified!"); res.status(200).json("This is verified!")});
+
+  io.use((socket, next)=>{
+    const token = socket.handshake.auth.token;
+    jwt.verify(token, process.env.SECRET_KEY, (err, user)=>{
+      if (err) return next(new Error("Authentication Error!"))
+
+      socket.user = user
+      next()
+    })
+  })
 
   io.on('connection', async(socket) => {
 
@@ -39,14 +52,18 @@ await db.exec(`
           let result;
           console.log('Received Message on server: ', msg)
           try{
-              result = await db.run('INSERT INTO messages (content) VALUES (?)', msg);
+              const message = await Message.create({
+                sender: socket.user.id,
+                content: msg
+              })
+              result = await message.populate("sender", "username")
+
+              io.emit('chat message', message.content, message.createdAt);
+              callback();
           }
           catch (e) { 
             return; 
-          }
-
-          io.emit('chat message', msg, result.lastID);
-          callback();
+          }  
       }
 
     )
@@ -55,19 +72,30 @@ await db.exec(`
       // if the connection state recovery was not successful
 
       try {
-        await db.each('SELECT id, content FROM messages WHERE id > ?',
-          [socket.handshake.auth.serverOffset || 0],
-          (_err, row) => {
-            socket.emit('chat message', row.content, row.id);
-          }
-        )
+        // await 
+        // db.each('SELECT id, content FROM messages WHERE id > ?',
+        //   [socket.handshake.auth.serverOffset || 0],
+        //   (_err, row) => {
+        //     socket.emit('chat message', row.content, row.id);
+        //   }
+        // )
+        const since = socket.handshake.auth.serverTimeStamp ? new Date(socket.handshake.auth.serverTimeStamp) : 0;
+        const messages = await Message.find({
+            createdAt: {$gt: since }
+        })
+        .sort({createdAt: 1})
+        .limit(500)
+
+        messages.forEach(element => {
+          socket.emit('chat message', element.content, element.createdAt)
+        });
       } catch (e) {
         // something went wrong
+        console.error(e)
       }
     }
   })
 
-  dotenv.config();
 
   server.listen(process.env.PORT, () => {
       console.log(`server running at http://localhost:${process.env.PORT}`);

@@ -5,9 +5,11 @@
   "type": "module",
   "dependencies": {
     "@socket.io/cluster-adapter": "^0.2.2",
+    "bcryptjs": "^3.0.3",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
+    "mongodb": "^7.0.0",
     "mongoose": "^8.19.3",
     "nodemon": "^3.1.10",
     "socket.io": "^4.8.1",
@@ -15,6 +17,6 @@
     "sqlite3": "^5.1.7"
   },
   "scripts": {
-    "server": "nodemon server.js"
+    "start": "nodemon index.js"
   }
 }
