@@ -3,12 +3,14 @@ import { createServer } from 'http';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { Server } from 'socket.io';
-import bcrypt from 'bcryptjs';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import { signup, login, authenticateToken } from "./Controllers/authController.js"
+import { signup, login } from "./routes/userroutes.js";
+import { authenticateToken } from "./Controllers/authController.js";
 import Message from './models/message.js'
 import jwt from 'jsonwebtoken';
+import cors from "cors";
+import User from './models/user.js';
 
 dotenv.config();
 
@@ -19,87 +21,94 @@ mongoose.connect(mongoURL).then(()=>{console.log("MongoDB connected!")})
 const app = express();
 app.use(express.json());
 
-  const server = createServer(app);
-  const currDir = dirname(fileURLToPath(import.meta.url));
-  const parDir = dirname(currDir);
-  const io = new Server(server, {
-    connectionStateRecovery: {}
-  });
+const server = createServer(app);
+const currDir = dirname(fileURLToPath(import.meta.url));
+const parDir = dirname(currDir);
+const io = new Server(server, {
+  connectionStateRecovery: {}
+});
 
-  app.get('/', (req, res) => {
-      res.sendFile(join(parDir, '/frontend/index.html'))
+app.use(cors());
+
+//removing this part of code because practically frontend and backend never run on the same server.
+// app.get('/', (req, res) => {
+//     res.sendFile(join(parDir, '/frontend/index.html'))
+// })
+
+app.post('/users/signup',signup);
+app.post('/users/login',login);
+app.get('/posts', authenticateToken, (req, res)=>{console.log("This is verified!"); res.status(200).json("This is verified!")});
+app.get('/users/:username', async(req, res)=>{
+  const {username} = req.params;
+  const user = await User.findOne({userName: username});
+  return res.status.json(user);
+})
+
+io.use((socket, next)=>{
+  const token = socket.handshake.auth.token;
+  jwt.verify(token, process.env.SECRET_KEY, (err, user)=>{
+    if (err) return next(new Error("Authentication Error!"))
+
+    socket.user = user
+    next()
   })
+})
 
-  app.post('/users/signup',signup);
-  app.post('/users/login',login);
-  app.get('/posts', authenticateToken, (req, res)=>{console.log("This is verified!"); res.status(200).json("This is verified!")});
+io.on('connection', async(socket) => {
 
-  io.use((socket, next)=>{
-    const token = socket.handshake.auth.token;
-    jwt.verify(token, process.env.SECRET_KEY, (err, user)=>{
-      if (err) return next(new Error("Authentication Error!"))
+  console.log('Client Connected: ', socket.id)
 
-      socket.user = user
-      next()
-    })
-  })
+    socket.on('chat message', async(msg, callback) => {
+        let result;
+        console.log('Received Message on server: ', msg)
+        try{
+            const message = await Message.create({
+              sender: socket.user.id,
+              content: msg
+            })
+            result = await message.populate("sender", "username")
 
-  io.on('connection', async(socket) => {
-
-    console.log('Client Connected: ', socket.id)
-
-      socket.on('chat message', async(msg, callback) => {
-          let result;
-          console.log('Received Message on server: ', msg)
-          try{
-              const message = await Message.create({
-                sender: socket.user.id,
-                content: msg
-              })
-              result = await message.populate("sender", "username")
-
-              io.emit('chat message', message.content, message.createdAt);
-              callback();
-          }
-          catch (e) { 
-            return; 
-          }  
-      }
-
-    )
-
-      if (!socket.recovered) {
-      // if the connection state recovery was not successful
-
-      try {
-        // await 
-        // db.each('SELECT id, content FROM messages WHERE id > ?',
-        //   [socket.handshake.auth.serverOffset || 0],
-        //   (_err, row) => {
-        //     socket.emit('chat message', row.content, row.id);
-        //   }
-        // )
-        const since = socket.handshake.auth.serverTimeStamp ? new Date(socket.handshake.auth.serverTimeStamp) : 0;
-        const messages = await Message.find({
-            createdAt: {$gt: since }
-        })
-        .sort({createdAt: 1})
-        .limit(500)
-
-        messages.forEach(element => {
-          socket.emit('chat message', element.content, element.createdAt)
-        });
-      } catch (e) {
-        // something went wrong
-        console.error(e)
-      }
+            io.emit('chat message', message.content, message.createdAt);
+            callback();
+        }
+        catch (e) { 
+          return; 
+        }  
     }
-  })
 
+  )
 
-  server.listen(process.env.PORT, () => {
-      console.log(`server running at http://localhost:${process.env.PORT}`);
-  })
+  if (!socket.recovered) {
+  // if the connection state recovery was not successful
+
+  try {
+    // await 
+    // db.each('SELECT id, content FROM messages WHERE id > ?',
+    //   [socket.handshake.auth.serverOffset || 0],
+    //   (_err, row) => {
+    //     socket.emit('chat message', row.content, row.id);
+    //   }
+    // )
+    const since = socket.handshake.auth.serverTimeStamp ? new Date(socket.handshake.auth.serverTimeStamp) : 0;
+    const messages = await Message.find({
+        createdAt: {$gt: since }
+    })
+    .sort({createdAt: 1})
+    .limit(500)
+
+    messages.forEach(element => {
+      socket.emit('chat message', element.content, element.createdAt)
+    });
+  } catch (e) {
+    // something went wrong
+    console.error(e)
+  }
+}
+})
+
+server.listen(process.env.PORT, () => {
+    console.log(`server running at http://localhost:${process.env.PORT}`);
+})
 
 // io.on('connection', (socket) => {
 //       socket.on('chat message', (msg) => {
