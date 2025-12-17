@@ -30,11 +30,6 @@ const io = new Server(server, {
 
 app.use(cors());
 
-//removing this part of code because practically frontend and backend never run on the same server.
-// app.get('/', (req, res) => {
-//     res.sendFile(join(parDir, '/frontend/index.html'))
-// })
-
 app.post('/users/signup',signup);
 app.post('/users/login',login);
 app.get('/posts', authenticateToken, (req, res)=>{console.log("This is verified!"); res.status(200).json("This is verified!")});
@@ -109,15 +104,3 @@ io.on('connection', async(socket) => {
 server.listen(process.env.PORT, () => {
     console.log(`server running at http://localhost:${process.env.PORT}`);
 })
-
-// io.on('connection', (socket) => {
-//       socket.on('chat message', (msg) => {
-//     console.log('message: ' + msg);
-//   });
-// });
-
-// io.on('connection', (socket) => {
-//     socket.on('chat message', (msg) => {
-//         io.emit('chat message', msg)
-//     })
-// }
