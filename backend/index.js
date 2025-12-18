@@ -32,11 +32,11 @@ app.use(cors());
 
 app.post('/users/signup',signup);
 app.post('/users/login',login);
-app.get('/posts', authenticateToken, (req, res)=>{console.log("This is verified!"); res.status(200).json("This is verified!")});
+app.get('/posts', authenticateToken, (res)=>{console.log("This is verified!"); res.status(200).json("This is verified!")});
 app.get('/users/:username', async(req, res)=>{
   const {username} = req.params;
   const user = await User.findOne({userName: username});
-  return res.status.json(user);
+  return res.status(200).json(user);
 })
 
 io.use((socket, next)=>{
