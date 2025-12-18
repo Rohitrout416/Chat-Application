@@ -5,6 +5,11 @@ interface User{
     userName: string
 }
 
-const UserContext = createContext<User | null>(null);
+interface userContextType{
+    user: User | null,
+    logout: () => void
+}
+
+const UserContext = createContext<userContextType>({user: null, logout: () => {}});
 
 export default UserContext;
